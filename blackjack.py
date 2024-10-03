@@ -55,16 +55,24 @@ def main():
         
         player_bet = get_bet(player_gold)
 
-        dealer_hand = initial_dealer_deal(choose_card(SUITS, VALUES))
-        player_hand = initial_player_deal(choose_card(SUITS, VALUES), choose_card(SUITS, VALUES))
+        dealer_hand = initial_deal(choose_card(SUITS, VALUES))
+        player_hand = initial_deal(choose_card(SUITS, VALUES), choose_card(SUITS, VALUES))
+        print_both_hands(dealer_hand, player_hand)
 
         # print(determine_hand_value(player_hand))
-        # while player_hit():
-        #     player_deal()
-        #     player_hit()
-
-        # dealer_flip()
-        # dealer_deal()
+        while determine_hand_value(player_hand) < 21:
+            player_choice = player_decision(player_hand)
+            if player_choice == "s":
+                break
+            elif player_choice == "h":
+                player_hand = hit_me(player_hand)
+                print_both_hands(dealer_hand, player_hand)
+            
+        dealer_hand = dealer_flip(dealer_hand)
+        print_both_hands(dealer_hand, player_hand)
+        while determine_hand_value(dealer_hand) < 17:
+            dealer_hand = hit_me(dealer_hand)
+            print_both_hands(dealer_hand, player_hand)
 
         # decide_winner()
         # play_again()
@@ -115,14 +123,12 @@ def choose_card(suits, values):
          "suit": random.choice(suits)
          }
     
-    # value = random.choice(values)
-    # suit = random.choice(suits)
-    
     return card
 
 
 # Turns the stored values of the cards into
 # a visual/printable format
+# Helper function for print_cards()
 def create_cards(list_of_cards):
     created_cards = []
     for card in list_of_cards:
@@ -155,7 +161,7 @@ def create_cards(list_of_cards):
 def print_cards(list_of_cards):
     card_lines = []
     num_of_cards = len(list_of_cards)
-    for card in list_of_cards:
+    for card in create_cards(list_of_cards):
         card_lines.append(card.split("\n"))
     for i in range(len(card_lines[0])):
         for j in range(num_of_cards):
@@ -163,21 +169,17 @@ def print_cards(list_of_cards):
         print()
 
 
-def initial_dealer_deal(dealer_card2):
-    cards = [BLANK_CARD, dealer_card2]
+def print_both_hands(dealers_cards, players_cards):
+    # Start w/ dealer
+    print("\nDealer's hand:")
+    print_cards(dealers_cards)
+    # Player next
+    print("Your hand:")
+    print_cards(players_cards)
+    
 
-    print("\nDealer's hand:", end="")
-    print_cards(create_cards(cards))
-
-    return cards
-
-
-def initial_player_deal(player_card1, player_card2):
-    cards = [player_card1, player_card2]
-
-    print("Your hand:", end="")
-    print_cards(create_cards(cards))
-
+def initial_deal(card2, card1=BLANK_CARD):
+    cards = [card1, card2]
     return cards
 
 
@@ -200,49 +202,62 @@ def determine_hand_value(hand_of_cards):
 # Determines what the player's options
 # are and gives a proper list of choices,
 # then returns the choice the player made
-def player_decision(value_of_hand, cards):
-    while True
+def player_decision(cards):
+    value_of_hand = determine_hand_value(cards)
+    while True:
         try:
             if len(cards) == 2 and 9 <= value_of_hand <= 11:
                 choice = input("(H)it, (S)tand, or (D)ouble Down? ").lower()
                 choices = ["h", "s", "d"]
-                if choice == choices:
+                if choice in choices:
                     return choice
                 else:
                     raise ValueError()
             elif is_pair(cards) and value_of_hand == 10:
                 choice = input("(H)it, (S)tand, (Sp)lit, or (D)ouble Down? ").lower()
                 choices = ["h", "s", "d", "sp"]
-                if choice == choices:
+                if choice in choices:
                     return choice
                 else:
                     raise ValueError()
             elif is_pair(cards):
                 choice = input("(H)it, (S)tand, or (Sp)lit? ").lower()
                 choices = ["h", "s", "sp"]
-                if choice == choices:
+                if choice in choices:
                     return choice
                 else:
                     raise ValueError()
             else:
-                choice = input("(H)it or (S)tand? ")
+                choice = input("(H)it or (S)tand? ").lower()
                 choices = ["h", "s"]
-                if choice == choices:
+                if choice in choices:
                     return choice
                 else:
                     raise ValueError()        
         except ValueError:
                 print(f"Please input one of the letters in parentheses.")
     
+
 # Helper function of player_decision()
 def is_pair(hand_of_cards):
+    if len(hand_of_cards) != 2:
+        return False
     card_values = []
-    if len(hand_of_cards) == 2:
-        for card in hand_of_cards:
-            card_values.append(card["value"])
-    if card_values[0] == card_values[1]:
+    for card in hand_of_cards:
+        card_values.append(card["value"])
+    if len(hand_of_cards) == 2 and card_values[0] == card_values[1]:
         return True
     return False
+
+def hit_me(hand_of_cards):
+    cards = hand_of_cards
+    cards.append(choose_card(SUITS, VALUES))
+    return cards
+
+
+def dealer_flip(dealers_cards_preflip):
+    dealers_hand = [choose_card(SUITS, VALUES), dealers_cards_preflip[1]]
+    return dealers_hand
 
 
 
