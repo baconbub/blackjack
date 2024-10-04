@@ -10,13 +10,6 @@ import random
 
 
 
-# Rules of blackjack
-# Choose to make bet
-# Dealer serves to me, themself, me, themself(face down)
-# Hit, Double, Stand, Split?
-# if stand, dealer reveals card, and plays to standard casino rules
-# if hit, go till stand or till 21 or till bust
-
 BLANK_CARD = """
  ___ 
 |## |
@@ -27,18 +20,21 @@ CLUB = "♣"
 DIAMOND = "♦"
 HEART = "♥"
 SPADE = "♠"
-D_STARTING_GOLD = 1000
-P_STARTING_GOLD = 100
+D_STARTING_CHIPS = 1000
+P_STARTING_CHIPS = 100
 SUITS = [CLUB, DIAMOND, HEART, SPADE]
 VALUES = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+VAL_DICT = {"A": 11, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10, "J": 10, "Q": 10, "K": 10}
 FACE_VALUE = 10
 TWENTYONE = 21
-ACE_ELEVEN = 11
-ACE_ONE = 1
+ACE_DIFF = 10
+DEALER_LIMIT = 17
+
+
 
 def main():
     # How to play
-    print("            Welcome to blackjack!")
+    print("                   Blackjack!")
     instructions = """
     Your goal is to gain chips by beating
     the dealer in hands of blackjack. You
@@ -49,44 +45,79 @@ def main():
     printed value. Good luck!
     """
     print(instructions)
-    dealer_gold = D_STARTING_GOLD
-    player_gold = P_STARTING_GOLD
+    dealer_chips = D_STARTING_CHIPS
+    player_chips = P_STARTING_CHIPS
+    print_money(dealer_chips, player_chips)
     while True:
-        
-        player_bet = get_bet(player_gold)
+        player_bet = get_bet(player_chips)
+        double_down = False
 
-        dealer_hand = initial_deal(choose_card(SUITS, VALUES))
-        player_hand = initial_deal(choose_card(SUITS, VALUES), choose_card(SUITS, VALUES))
+        # Deal out intial hands
+        dealer_hand = initial_deal(deal_card(SUITS, VALUES))
+        player_hand = initial_deal(deal_card(SUITS, VALUES), deal_card(SUITS, VALUES))
         print_both_hands(dealer_hand, player_hand)
 
-        # print(determine_hand_value(player_hand))
-        while determine_hand_value(player_hand) < 21:
-            player_choice = player_decision(player_hand)
+        # Check for blackjack
+        result = check_end_condition(blackjack(player_hand), "BLACKJACK! You win!", dealer_chips, player_chips, player_bet, dealer_hand, player_hand)
+        if result == "break":
+            break
+        elif result == "continue":
+            continue
+
+        # Player takes their turns
+        while not bust(player_hand):
+            player_choice = player_decision(player_hand, double_down)
             if player_choice == "s":
                 break
             elif player_choice == "h":
                 player_hand = hit_me(player_hand)
                 print_both_hands(dealer_hand, player_hand)
-            
+            elif player_choice == "d":
+                player_bet *= 2
+                double_down = True
+
+
+        # Check if player busted
+        result = check_end_condition(bust(player_hand), "You BUSTED! Dealer wins.", dealer_chips, player_chips, player_bet, dealer_hand, player_hand)
+        if result == "break":
+            break
+        elif result == "continue":
+            continue
+
+        # Dealer takes their turns
         dealer_hand = dealer_flip(dealer_hand)
         print_both_hands(dealer_hand, player_hand)
-        while determine_hand_value(dealer_hand) < 17:
+        while determine_hand_value(dealer_hand) < DEALER_LIMIT:
+            pause()
             dealer_hand = hit_me(dealer_hand)
             print_both_hands(dealer_hand, player_hand)
 
-        # decide_winner()
-        # play_again()
-        # get_bet()
+        # Check if dealer busted
+        result = check_end_condition(bust(dealer_hand), "The dealer BUSTED! You win!", dealer_chips, player_chips, player_bet, dealer_hand, player_hand)
+        if result == "break":
+            break
+        elif result == "continue":
+            continue
+        
+        # Print whether you win or lose
+        print(determine_winner(dealer_hand, player_hand))
 
+        # Update player/dealer gold
+        update_and_print_money(dealer_chips, player_chips, player_bet, dealer_hand, player_hand)
 
+        # Check if player wants to play again
         if not play_again():
             break
 
     print("Thanks for playing!")
-    if player_gold > P_STARTING_GOLD:
-        print(f"You made {player_gold - P_STARTING_GOLD} money!")
-    elif player_gold < P_STARTING_GOLD:
-        print(f"Aww, you lost {P_STARTING_GOLD - player_gold} money.")
+    if player_chips > P_STARTING_CHIPS:
+        print(f"You made ${player_chips - P_STARTING_CHIPS}!")
+    elif player_chips < P_STARTING_CHIPS:
+        print(f"Aww, you lost ${P_STARTING_CHIPS - player_chips}.")
+
+
+
+# FUNCTIONS:        
 
 def play_again():
     play_list = ["n", "y"]
@@ -104,8 +135,30 @@ def play_again():
             print("Please type either y or n.")
 
 
+def update_and_print_money(dealer_money, player_money, bet, dealer_hand, player_hand):
+    if bust(dealer_hand):
+        dealer_money -= bet
+        player_money += bet
+    elif bust(player_hand):
+        dealer_money += bet
+        player_money -= bet
+    else:
+        who_won = determine_winner(dealer_hand, player_hand)
+        if who_won == "You win!":
+            dealer_money -= bet
+            player_money += bet
+        elif who_won == "Sorry, dealer wins.":
+            dealer_money += bet
+            player_money -= bet
+
+    print_money(dealer_money, player_money)
+
+
+def print_money(dealer_money, player_money):
+    print(f"Dealer money: ${dealer_money}\nPlayer money: ${player_money}\n")
+
+
 def get_bet(money):
-    print(f"Player: ${money}")
     while True:     
         try:   
             bet = int(input("How much would you like to bet? "))
@@ -117,7 +170,7 @@ def get_bet(money):
             print(f"Please bet between 0 and {money}")
 
 
-def choose_card(suits, values):
+def deal_card(suits, values):
     card = {
         "value": random.choice(values),
          "suit": random.choice(suits)
@@ -129,8 +182,8 @@ def choose_card(suits, values):
 # Turns the stored values of the cards into
 # a visual/printable format
 # Helper function for print_cards()
-def create_cards(list_of_cards):
-    created_cards = []
+def convert_cards(list_of_cards):
+    converted_cards = []
     for card in list_of_cards:
         if card == BLANK_CARD:
             card_design = BLANK_CARD
@@ -151,9 +204,9 @@ def create_cards(list_of_cards):
 | {suit} |
 |__{value}|
 """
-        created_cards.append(card_design)
+        converted_cards.append(card_design)
 
-    return created_cards
+    return converted_cards
 
 
 # Takes the visual format of the cards
@@ -161,7 +214,7 @@ def create_cards(list_of_cards):
 def print_cards(list_of_cards):
     card_lines = []
     num_of_cards = len(list_of_cards)
-    for card in create_cards(list_of_cards):
+    for card in convert_cards(list_of_cards):
         card_lines.append(card.split("\n"))
     for i in range(len(card_lines[0])):
         for j in range(num_of_cards):
@@ -169,13 +222,13 @@ def print_cards(list_of_cards):
         print()
 
 
-def print_both_hands(dealers_cards, players_cards):
+def print_both_hands(dealer_cards, player_cards):
     # Start w/ dealer
     print("\nDealer's hand:")
-    print_cards(dealers_cards)
+    print_cards(dealer_cards)
     # Player next
     print("Your hand:")
-    print_cards(players_cards)
+    print_cards(player_cards)
     
 
 def initial_deal(card2, card1=BLANK_CARD):
@@ -184,17 +237,17 @@ def initial_deal(card2, card1=BLANK_CARD):
 
 
 def determine_hand_value(hand_of_cards):
-    card_values = {"A": 11, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10, "J": 10, "Q": 10, "K": 10}
     hand_value = 0
     aces = 0
     for card in hand_of_cards:
-        value = card["value"]
-        hand_value += card_values[value]
-        if value == "A":
-            aces += 1
+        if isinstance(card, dict):
+            value = card["value"]
+            hand_value += VAL_DICT[value]
+            if value == "A":
+                aces += 1
 
-    while hand_value > 21 and aces:
-        hand_value -= 10
+    while hand_value > TWENTYONE and aces:
+        hand_value -= ACE_DIFF
         aces -= 1
 
     return hand_value
@@ -202,18 +255,18 @@ def determine_hand_value(hand_of_cards):
 # Determines what the player's options
 # are and gives a proper list of choices,
 # then returns the choice the player made
-def player_decision(cards):
+def player_decision(cards, double_down):
     value_of_hand = determine_hand_value(cards)
     while True:
         try:
-            if len(cards) == 2 and 9 <= value_of_hand <= 11:
+            if len(cards) == 2 and 9 <= value_of_hand <= 11 and not double_down:
                 choice = input("(H)it, (S)tand, or (D)ouble Down? ").lower()
                 choices = ["h", "s", "d"]
                 if choice in choices:
                     return choice
                 else:
                     raise ValueError()
-            elif is_pair(cards) and value_of_hand == 10:
+            elif is_pair(cards) and value_of_hand == 10 and not double_down:
                 choice = input("(H)it, (S)tand, (Sp)lit, or (D)ouble Down? ").lower()
                 choices = ["h", "s", "d", "sp"]
                 if choice in choices:
@@ -244,20 +297,62 @@ def is_pair(hand_of_cards):
         return False
     card_values = []
     for card in hand_of_cards:
-        card_values.append(card["value"])
+        # Failsafe for if you get a blackjack
+        # and BLANKCARD is checked for pair
+        if isinstance(card, dict):
+            card_values.append(card["value"])
     if len(hand_of_cards) == 2 and card_values[0] == card_values[1]:
         return True
     return False
 
 def hit_me(hand_of_cards):
     cards = hand_of_cards
-    cards.append(choose_card(SUITS, VALUES))
+    cards.append(deal_card(SUITS, VALUES))
     return cards
 
 
-def dealer_flip(dealers_cards_preflip):
-    dealers_hand = [choose_card(SUITS, VALUES), dealers_cards_preflip[1]]
-    return dealers_hand
+def dealer_flip(dealer_cards_preflip):
+    dealer_hand = [deal_card(SUITS, VALUES), dealer_cards_preflip[1]]
+    return dealer_hand
+
+
+def pause():
+    while True:
+        input("Press ENTER to continue")
+        break
+
+# bust???
+def bust(player_hand):
+    if determine_hand_value(player_hand) > TWENTYONE:
+        return True
+    return False
+
+
+def blackjack(player_hands):
+    if determine_hand_value(player_hands) == TWENTYONE:
+        return True
+    return False
+
+
+def determine_winner(dealer_hand, player_hand):
+    dealer_score = determine_hand_value(dealer_hand)
+    player_score = determine_hand_value(player_hand)
+    if player_score > dealer_score:
+        return "You win!"
+    elif dealer_score > player_score:
+        return "Sorry, dealer wins."
+    else:
+        return "You tied!"
+    
+
+def check_end_condition(condition, message, dealer_money, player_money, bet, dealer_hand, player_hand):
+    if condition:
+        print(message)
+        update_and_print_money(dealer_money, player_money, bet, dealer_hand, player_hand)
+        if not play_again():
+            return "break"
+        return "continue"
+    return None
 
 
 
