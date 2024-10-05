@@ -34,16 +34,16 @@ DEALER_LIMIT = 17
 
 def main():
     # How to play
-    print("                   Blackjack!")
+    print("              Blackjack!")
     instructions = """
-    Your goal is to gain chips by beating
-    the dealer in hands of blackjack. You
-    win by hitting 21 or getting closer to
-    21 than the dealer. Jacks, Queens, and
-    Kings are worth 10. Aces are worth either
-    1 or 11. Every other card is worth the
-    printed value. Good luck!
-    """
+Your goal is to gain chips by beating
+the dealer in hands of blackjack. You
+win by hitting 21 or getting closer to
+21 than the dealer. Jacks, Queens, and
+Kings are worth 10. Aces are worth either
+1 or 11. Every other card is worth the
+printed value. Good luck!
+"""
     print(instructions)
     dealer_chips = D_STARTING_CHIPS
     player_chips = P_STARTING_CHIPS
@@ -102,8 +102,9 @@ def main():
         # Print whether you win or lose
         print(determine_winner(dealer_hand, player_hand))
 
-        # Update player/dealer gold
-        update_and_print_money(dealer_chips, player_chips, player_bet, dealer_hand, player_hand)
+        # Update player/dealer money
+        dealer_chips, player_chips = update_and_print_money(dealer_chips, player_chips, player_bet, dealer_hand, player_hand)
+        print_money(dealer_chips, player_chips)
 
         # Check if player wants to play again
         if not play_again():
@@ -151,23 +152,24 @@ def update_and_print_money(dealer_money, player_money, bet, dealer_hand, player_
             dealer_money += bet
             player_money -= bet
 
-    print_money(dealer_money, player_money)
+    # print_money(dealer_money, player_money)
+    return dealer_money, player_money
 
 
 def print_money(dealer_money, player_money):
     print(f"Dealer money: ${dealer_money}\nPlayer money: ${player_money}\n")
 
 
-def get_bet(money):
+def get_bet(current_money):
     while True:     
         try:   
             bet = int(input("How much would you like to bet? "))
-            if 0 < bet < money:
+            if 0 < bet < current_money:
                 return bet
             else:
                 raise ValueError()
         except ValueError:
-            print(f"Please bet between 0 and {money}")
+            print(f"Please bet between 0 and {current_money}")
 
 
 def deal_card(suits, values):
@@ -348,7 +350,8 @@ def determine_winner(dealer_hand, player_hand):
 def check_end_condition(condition, message, dealer_money, player_money, bet, dealer_hand, player_hand):
     if condition:
         print(message)
-        update_and_print_money(dealer_money, player_money, bet, dealer_hand, player_hand)
+        dealer_money, player_money = update_and_print_money(dealer_money, player_money, bet, dealer_hand, player_hand)
+        print_money(dealer_money, player_money)
         if not play_again():
             return "break"
         return "continue"
