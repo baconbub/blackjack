@@ -78,6 +78,7 @@ class Player:
     def __init__(self, money):
         self.money = money
         self.hand_of_cards = []
+        self.list_of_hand_of_cards = [self.hand_of_cards]
         self.bankrupt = False
         self.can_double_down = False
 
@@ -89,6 +90,7 @@ class Player:
     def set_new_hand(self):
         self.double_down = False
         self.hand_of_cards = []
+        self.list_of_hand_of_cards = [self.hand_of_cards]
         self.deal_card()
         self.deal_card()
         self.set_hand_value()
@@ -99,12 +101,6 @@ class Player:
     def lose_bet(self, bet):
         self.money -= bet
     
-    # def check_double_down(self, game: Game):
-    #     bet = game.bet
-    #     if (bet * 2) <= self.money and len(self.hand_of_cards) == 2 and 9 <= self.hand_value <= 11:
-    #         return True
-    #     return False
-
     def calculate_hand_value(self):
         hand_value = 0
         aces = 0
@@ -222,10 +218,10 @@ class Game:
             except ValueError:
                 print(f"Please bet between 0 and {self.player.money}")
 
-    def print_cards(self, player: Player):
+    def print_cards(self, hand_of_cards):
         card_lines = []
-        num_of_cards = len(player.hand_of_cards)
-        for card in player.hand_of_cards:
+        num_of_cards = len(hand_of_cards)
+        for card in hand_of_cards:
             if isinstance(card, Card):
                 card_lines.append(card.appearance.split("\n"))
         for i in range(len(card_lines[0])):
@@ -236,10 +232,15 @@ class Game:
     def print_both_hands(self):
         # Dealer first
         print("\nDealer's hand:", end="")
-        self.print_cards(self.dealer)
+        self.print_cards(self.dealer.hand_of_cards)
         # Player next
-        print("Your hand:", end="")
-        self.print_cards(self.player)
+        if len(self.player.list_of_hand_of_cards) == 1:
+            print("Your hand:", end="")
+            self.print_cards(self.player.list_of_hand_of_cards[0])
+        else:
+            for index, hand in enumerate(self.player.list_of_hand_of_cards, start=1):
+                print(f"Hand #{index}:", end="")
+                self.print_cards(hand)
 
     def set_play_again(self):
         play_list = ["n", "y"]
@@ -316,6 +317,11 @@ class Game:
         if (self.bet * 2) <= self.player.money and len(self.player.hand_of_cards) == 2 and 9 <= self.player.hand_value <= 11:
             self.player.can_double_down = True
         self.player.can_double_down = False
+
+    def check_split(self):
+        if self.bet * 2 <= self.player.money and self.player.has_pair():
+            return True
+        return False
     
     def player_turn(self):
         self.check_double_down()
@@ -332,7 +338,9 @@ class Game:
                 self.print_both_hands()
                 break
             elif player_choice == "sp":
-                continue
+                self.player.list_of_hand_of_cards = [[card] for card in self.player.hand_of_cards]
+                for hand in self.player.list_of_hand_of_cards:
+                    hand.
     
     def dealer_turn(self):
         card1 = self.dealer.hand_of_cards[0]
