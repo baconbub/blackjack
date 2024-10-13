@@ -32,10 +32,11 @@ SPLIT = "sp"
 
 
 class Card:
-    def __init__(self, value, suit, facedown=False):
+    def __init__(self, value, suit, facedown=True, next_card=None):
         self.value = value
         self.suit = suit
         self.facedown = facedown
+        self.next_card = next_card
         self.appearance = self.generate_appearance()
 
     def generate_appearance(self):
@@ -65,6 +66,9 @@ class Card:
     def flip_card(self):
         self.facedown = False
         self.appearance = self.generate_appearance()
+
+    def set_next_card(self, next_card):
+        self.next_card = next_card
         
 
 
@@ -115,6 +119,44 @@ class Hand:
 
 
 
+class Deck:
+    def __init__(self):
+        self.discard_pile = self.create_discard_pile()
+        self.top_card = None
+        self.size = 0
+        self.shuffle()
+        
+    def create_discard_pile(self):
+        # Initiates all cards into list
+        discard_pile = []
+        for suit in SUITS:
+            for value in VALUES:
+                discard_pile.append(Card(value, suit))
+        return discard_pile
+    
+    def shuffle(self):
+        self.top_card = None
+        random.shuffle(self.discard_pile)
+        while self.discard_pile:
+            card = self.discard_pile.pop(0)
+            card.set_next_card(self.top_card)
+            self.top_card = card
+            self.size += 1
+
+    def draw_card(self) -> Card:
+        if self.size > 0:
+            card_being_dealt = self.top_card
+            self.top_card = card_being_dealt.next_card
+            card_being_dealt.set_next_card(None)
+            self.size -= 1
+            return card_being_dealt
+        elif self.size == 0:
+            print("\nOut of cards, shuffling deck.\n")
+            self.shuffle()
+            return self.draw_card()
+
+
+
 class Player:
     def __init__(self, money):
         self.money = money
@@ -127,14 +169,20 @@ class Player:
     #     self.hands[0].add_card(card)
     # TEST METHOD FOR CHECKING DOUBLE DOWN AND SPLIT
 
-    def deal_card(self, hand_index=0, facedown=False):
-        card = Card(random.choice(VALUES), random.choice(SUITS), facedown)
+    def deal_card(self, deck: Deck, hand_index=0):
+        card = deck.draw_card()
+        card.flip_card()
         self.hands[hand_index].add_card(card)
 
-    def start_new_hand(self):
+    def discard_cards(self, deck: Deck, hand_index=0):
+        # print("Discarding cards.")
+        for card in self.hands[hand_index].cards:
+            deck.discard_pile.append(card)
+
+    def start_new_hand(self, deck: Deck):
         self.hands = [Hand()]
-        self.deal_card()
-        self.deal_card()
+        self.deal_card(deck)
+        self.deal_card(deck)
     
     def win_bet(self, bet):
         self.money += bet
@@ -185,7 +233,7 @@ class Player:
             except ValueError:
                 print(f"Please input one of the letters in parentheses.")
 
-    def split_hand(self, hand_index):
+    def split_hand(self, deck: Deck, hand_index):
         # Make new hand
         new_hand = Hand()
         # Move 1 from pair to new hand
@@ -194,37 +242,42 @@ class Player:
         # Assign hand to player
         self.hands.append(new_hand)
         # Deal card to each of two new hands
-        self.deal_card(hand_index)
-        self.deal_card(len(self.hands) - 1)
+        self.deal_card(deck, hand_index)
+        self.deal_card(deck, (len(self.hands) - 1))
 
 
 
 class Dealer(Player):
     def __init__(self, money):
         super().__init__(money)
-        
-    def start_new_hand(self):
-        self.hands = [Hand()]
-        self.deal_card(facedown=True)
-        self.deal_card()
 
-    def take_turn(self):
+    def deal_facedown_card(self, deck: Deck, hand_index=0):
+        card = deck.draw_card()
+        self.hands[hand_index].add_card(card)
+        
+    def start_new_hand(self, deck: Deck):
+        self.hands = [Hand()]
+        self.deal_facedown_card(deck)
+        self.deal_card(deck)
+
+    def take_turn(self, deck: Deck):
         pause()
-        self.deal_card()
+        self.deal_card(deck)
 
 
 
 class Game:
-    def __init__(self, dealer: Dealer, player: Player, intro: str):
+    def __init__(self, dealer: Dealer, player: Player, deck: Deck, intro: str):
         self.dealer = dealer
         self.player = player
+        self.deck = deck
         self.play_again = True
         self.hand_winners = []
         self.bet = 0
         print(intro)
 
     def print_money(self):
-        print(f"Dealer money: ${self.dealer.money}\nPlayer money: ${self.player.money}")
+        print(f"Dealer money: ${self.dealer.money}\nPlayer money: ${self.player.money}\n")
 
     def get_bet(self):
         while True:     
@@ -254,15 +307,19 @@ class Game:
     
     def print_all_hands(self):
         # Dealer first
-        print("\nDealer's hand:", end="")
-        self.print_cards(self.dealer.hands[0].cards)
+        if self.get_dealer_hand().cards[0].facedown == True:
+            print(f"\nDealer's hand: {VAL_DICT[self.get_dealer_hand().cards[1].value]}", end="")
+            self.print_cards(self.dealer.hands[0].cards)
+        else:
+            print(f"\nDealer's hand: {self.get_dealer_hand().value}", end="")
+            self.print_cards(self.dealer.hands[0].cards)
         # Player next
         if len(self.player.hands) == 1:
-            print("Your hand:", end="")
+            print(f"Your hand: {self.player.hands[0].value}", end="")
             self.print_cards(self.player.hands[0].cards)
         else:
             for index, hand in enumerate(self.player.hands, start=1):
-                print(f"Hand #{index}:", end="")
+                print(f"Hand #{index}: {hand.value}", end="")
                 self.print_cards(hand.cards)
 
     def set_play_again(self):
@@ -312,8 +369,8 @@ class Game:
     def start_round(self):
         self.bet = self.get_bet()
         self.hand_winners = []
-        self.dealer.start_new_hand()
-        self.player.start_new_hand()
+        self.dealer.start_new_hand(self.deck)
+        self.player.start_new_hand(self.deck)
         self.print_all_hands()
         
     def end_round(self):
@@ -323,6 +380,7 @@ class Game:
             self.print_winner_message(current_hand)
             self.update_money(current_hand)
             self.print_money()
+            self.player.discard_cards(self.deck, current_hand)
             current_hand += 1
 
         if self.is_bankrupt():
@@ -364,16 +422,16 @@ class Game:
                     current_hand += 1
                     break
                 elif player_choice == HIT:
-                    self.player.deal_card(current_hand)
+                    self.player.deal_card(self.deck, current_hand)
                     self.print_all_hands()
                 elif player_choice == DOUBLE_DOWN:
                     self.bet *= 2
-                    self.player.deal_card(current_hand)
+                    self.player.deal_card(self.deck, current_hand)
                     self.print_all_hands()
                     current_hand += 1
                     break
                 elif player_choice == SPLIT:
-                    self.player.split_hand(current_hand)
+                    self.player.split_hand(self.deck, current_hand)
                     self.print_all_hands()
                     break
 
@@ -389,11 +447,10 @@ class Game:
     
     def dealer_turn(self):
         card1 = self.get_dealer_hand().cards[0]
-        if isinstance(card1, Card) and card1.facedown:
-            card1.flip_card()
+        card1.flip_card()
         self.print_all_hands()
         while self.get_dealer_hand().value < DEALER_LIMIT:
-            self.dealer.take_turn()
+            self.dealer.take_turn(self.deck)
             self.print_all_hands()
 
     def update_bankrupt(self):
@@ -444,7 +501,8 @@ Split: Create two separate hands with
 """
     player = Player(P_STARTING_CHIPS)
     dealer = Dealer(D_STARTING_CHIPS)
-    blackjack = Game(dealer, player, instructions)
+    deck = Deck()
+    blackjack = Game(dealer, player, deck, instructions)
     blackjack.print_money()
 
     while blackjack.play_again:
