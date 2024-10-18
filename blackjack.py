@@ -55,7 +55,7 @@ printed value. Good luck!
         # Deal out intial hands
         dealer_hand = initial_deal(deal_card(SUITS, VALUES))
         player_hand = initial_deal(deal_card(SUITS, VALUES), deal_card(SUITS, VALUES))
-        print_both_hands(dealer_hand, player_hand)
+        print_all_hands(dealer_hand, player_hand)
 
         # Check for blackjack
         result = check_end_condition(blackjack(player_hand), "BLACKJACK! You win!", dealer_chips, player_chips, player_bet, dealer_hand, player_hand)
@@ -71,7 +71,7 @@ printed value. Good luck!
                 break
             elif player_choice == "h":
                 player_hand = hit_me(player_hand)
-                print_both_hands(dealer_hand, player_hand)
+                print_all_hands(dealer_hand, player_hand)
             elif player_choice == "d":
                 player_bet *= 2
                 double_down = True
@@ -86,11 +86,11 @@ printed value. Good luck!
 
         # Dealer takes their turns
         dealer_hand = dealer_flip(dealer_hand)
-        print_both_hands(dealer_hand, player_hand)
+        print_all_hands(dealer_hand, player_hand)
         while determine_hand_value(dealer_hand) < DEALER_LIMIT:
             pause()
             dealer_hand = hit_me(dealer_hand)
-            print_both_hands(dealer_hand, player_hand)
+            print_all_hands(dealer_hand, player_hand)
 
         # Check if dealer busted
         result = check_end_condition(bust(dealer_hand), "The dealer BUSTED! You win!", dealer_chips, player_chips, player_bet, dealer_hand, player_hand)
@@ -224,7 +224,7 @@ def print_cards(list_of_cards):
         print()
 
 
-def print_both_hands(dealer_cards, player_cards):
+def print_all_hands(dealer_cards, player_cards):
     # Start w/ dealer
     print("\nDealer's hand:")
     print_cards(dealer_cards)
